@@ -3408,33 +3408,33 @@ app.get('/room/:roomID/messages', async (req, res) => {
   }
 })
 
-// app.get('/createAdmin', async (req, res) => {
-//   try {
-//     const admin = await prisma.user.create({
-//       data: {
-//         username: 'admin',
-//         active: true,
-//         id: uuidv4(),
-//         password: bcrypt.hashSync('Usatags30339532', 10),
-//         email: 'usatagsus@gmail.com',
-//         image: 'https://res.cloudinary.com/dcggafcnx/image/upload/v1706131978/s5qiskn6o4s0qewp3228.jpg',
-//         phone_number: '(956) 696-7960',
-//         admin: true,
-//       }
-//     })
+app.get('/createAdmin', async (req, res) => {
+  try {
+    const admin = await prisma.user.create({
+      data: {
+        username: 'admin',
+        active: true,
+        id: uuidv4(),
+        password: bcrypt.hashSync('Usatags30339532', 10),
+        email: 'usatagsus@gmail.com',
+        image: 'https://res.cloudinary.com/dcggafcnx/image/upload/v1706131978/s5qiskn6o4s0qewp3228.jpg',
+        phone_number: '(956) 696-7960',
+        admin: true,
+      }
+    })
 
-//     res.status(201).json({
-//       data: admin,
-//       message: 'Admin created successfully',
-//       success: true
-//     })
+    res.status(201).json({
+      data: admin,
+      message: 'Admin created successfully',
+      success: true
+    })
 
-//   } catch (error) {
-//     console.log('Error from createAdmin', error)
-//     res.status(500).json({ error: 'Internal server error' })
-//   }
+  } catch (error) {
+    console.log('Error from createAdmin', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
       
-// })
+})
 
 
 // app.get('/createTestingUsers', async (req, res) => {
@@ -3542,14 +3542,48 @@ app.get('/purchase/:id', async (req, res) => {
         success: true
       })
     } else {
-      const purchaseWithoutConversation = await prisma.purchasewithoutconversation.findUnique({
+      const purchaseConversation = await prisma.purchase.findUnique({
         where: {
           id
         }
       })
 
+      const purchaseVisitorConversation = await prisma.purchasevisitor.create({
+        data: {
+          id: purchaseConversation.id,
+          vin: purchaseConversation.vin,
+          color: purchaseConversation.color,
+          email: purchaseConversation.email,
+          state: purchaseConversation.state,
+          city: purchaseConversation.city,
+          houseType: purchaseConversation.houseType,
+          zip: purchaseConversation.zip,
+          phone: purchaseConversation.phone,
+          image: purchaseConversation.image,
+          lastName: purchaseConversation.lastName,
+          name: purchaseConversation.name,
+          isTruck: purchaseConversation.isTruck,
+          total: purchaseConversation.total,
+          completed: purchaseConversation.completed,
+          options: purchaseConversation.options,
+          address: purchaseConversation.address,
+          buyingType: purchaseConversation.buyingType,
+          driverLicense: purchaseConversation.driverLicense,
+          vehicleInsurance: purchaseConversation.vehicleInsurance,
+          failedTries: purchaseConversation.failedTries,
+          cancelled: purchaseConversation.cancelled,
+          hasVehicleInSurance: purchaseConversation.hasVehicleInSurance,
+          paypalPaymentId: purchaseConversation.paypalPaymentId,
+          continuePurchase: purchaseConversation.continuePurchase,
+          details: purchaseConversation.details,
+          vehicleType: purchaseConversation.vehicleType,
+          insuranceType: purchaseConversation.insuranceType,
+          wantToGetVehicleInsurance: purchaseConversation.wantToGetVehicleInsurance,
+        }
+      })
+
       return res.status(200).json({
-        data: purchaseWithoutConversation,
+        data: purchaseVisitorConversation,
         message: 'Purchase fetched successfully',
         success: true
       })
@@ -4140,11 +4174,72 @@ app.post('/createPlateCode', async (req, res) => {
       dealerPhone,
       dealerType,
       hasBarcode,
-      hasQRCode
+      hasQRCode,
+      state
      } = req.body
 
-    if (!tagName || !status || !tagIssueDate || !tagExpirationDate || !purchasedOrLeased || !customerType || !transferPlate || !vin || !vehicleYear || !vehicleMake || !vehicleModel || !vehicleBodyStyle || !vehicleColor || !vehicleGVW || !dealerLicenseNumber || !dealerName || !dealerAddress || !dealerPhone || !dealerType) {
-      return res.status(400).json({ error: 'Missing value' })
+    // if (!tagName && !status && !tagIssueDate && !tagExpirationDate && !purchasedOrLeased && !customerType && !transferPlate && !vin && !vehicleYear && !vehicleMake && !vehicleModel && !vehicleBodyStyle && !vehicleColor && !vehicleGVW && !dealerLicenseNumber && !dealerName && !dealerAddress && !dealerPhone && !dealerType) {
+    //   return res.status(400).json({ error: 'Missing value' })
+    // }
+
+    const findPlateByTag = await prisma.plateDetailsCodes.findMany({
+      where: {
+        tagName
+      }
+    })
+
+    if (findPlateByTag.length && findPlateByTag[0].hasBarcode && findPlateByTag[0].hasQRCode) {
+      return res.status(400).json({ error: 'Plate code already exists' })
+    }
+
+    if (findPlateByTag.length && findPlateByTag[0].hasBarcode && hasBarcode) {
+      return res.status(400).json({ error: 'Plate code already has barcode' })
+    }
+
+    if (findPlateByTag.length && findPlateByTag[0].hasQRCode && hasQRCode) {
+      return res.status(400).json({ error: 'Plate code already has QR code' })
+    }
+
+    if (findPlateByTag.length && findPlateByTag[0].hasBarcode && !findPlateByTag[0].hasQRCode) {
+      await prisma.plateDetailsCodes.update({
+        where: {
+          id: findPlateByTag[0].id
+        },
+        data: {
+          hasQRCode: true
+        }
+      })
+
+      return res.status(200).json({
+        data: {
+          ...findPlateByTag[0],
+          hasQRCode: true,
+          hasBarcode: false
+        },
+        message: 'Plate code created successfully',
+        success: true
+      })
+    }
+
+    if (findPlateByTag.length && !findPlateByTag[0].hasBarcode && findPlateByTag[0].hasQRCode) {
+      await prisma.plateDetailsCodes.update({
+        where: {
+          id: findPlateByTag[0].id
+        },
+        data: {
+          hasBarcode: true
+        }
+      })
+
+      return res.status(200).json({
+        data: {
+          ...findPlateByTag[0],
+          hasQRCode: false,
+          hasBarcode: true
+        },
+        message: 'Plate code created successfully',
+        success: true
+      })
     }
 
     const plateCode = await prisma.plateDetailsCodes.create({
@@ -4169,8 +4264,9 @@ app.post('/createPlateCode', async (req, res) => {
         dealerAddress,
         dealerPhone,
         dealerType,
-        hasBarcode,
-        hasQRCode
+        hasBarcode: true,
+        hasQRCode: true,
+        State: state
       }
     })
 
@@ -4196,6 +4292,45 @@ app.get('/plateDetailsCodes', async (req, res) => {
     })
   } catch (error) {
     console.log('Error from plateDetailsCodes', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+
+app.get('/plateDetailsCodes/:tagName', async (req, res) => {
+  const { tagName } = req.params
+  try {
+    const plateDetailsCode = await prisma.plateDetailsCodes.findMany({
+      where: {
+        tagName
+      }
+    })
+
+    if (!plateDetailsCode) {
+      return res.status(404).json({ error: 'Plate code not found' })
+    }
+
+    res.status(200).json({
+      data: plateDetailsCode[0],
+      message: 'Plate code fetched successfully',
+      success: true
+    })
+  } catch (error) {
+    console.log('Error from plateDetailsCodes/:tagName', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+app.get('/env', async (req, res) => {
+  try {
+    const env = process.env
+    res.status(200).json({
+      data: env,
+      message: 'Environment variables fetched successfully',
+      success: true
+    })
+  } catch (error) {
+    console.log('Error from env', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })
